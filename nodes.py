@@ -1,7 +1,8 @@
 from prompts import SYSTEM_PROMPT
 from utils import use_gcp
 from state import Suggest_state
-from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.prebuilt import ToolNode
+#tools_condition
 from langchain_core.messages import (SystemMessage,
     BaseMessage, 
     HumanMessage, 
@@ -22,47 +23,59 @@ def model_with_tools(tools):
 
 
 def assistant(state:Suggest_state):
-    #Ask LLM what to do/respond
-    llm_tools = model_with_tools(
-        tools = use_tools 
-    )
-    
-    response = llm_tools.invoke([SystemMessage(SYSTEM_PROMPT)]+ state['messages'])
-    
-    #state['messages'] = [response]
+    prompt = [SystemMessage(SYSTEM_PROMPT)]
+    if summary := state.get("summary"):
+        prompt.append(SystemMessage(f"Summary of earlier conversation: {summary}"))
+    response = model_with_tools(use_tools).invoke(prompt + state["messages"])
     return {"messages": [response]}
+
+    
+    #Ask LLM what to do/respond
+    # llm_tools = model_with_tools(
+    #     tools = use_tools 
+    # )
+    
+    # response = llm_tools.invoke([SystemMessage(SYSTEM_PROMPT)]+ state['messages']# )
+    #state['messages'] = [response]
+    #return {"messages": [response]}
     
     
 
 
 
-def safe(messages:list[BaseMessage],KEEP_RECENT:int)->int:
+def safe(messages: list[BaseMessage], KEEP_RECENT:int) -> int:
     #Find a safe place to split old/new messages
-    cut = len(messages)-KEEP_RECENT
-    while cut > 0 and isinstance(messages[cut],HumanMessage):
+    cut = len(messages) - KEEP_RECENT
+    while cut > 0 and not isinstance(messages[cut], HumanMessage):
         cut -= 1
-    return cut
+    return max(cut,0)
+    #return cut
 
 def conversation(state: Suggest_state):
     #Compress old conversation into a summary
     messages = state['messages']
     cut=safe(messages,KEEP_RECENT)
-    old=cut[:cut]
+    #old=cut[:cut]
+    old = messages[:cut]
+    
+    if not old:
+        return {}
+    
     instruction=(
-        "Summarise this part of a product-advice conversations in under 120 words. "
-        "Keep the customers state concerns and which products were discussed. "
-        "Do not invent anything"
+       "Summarise this part of a product-advice conversation in under 120 words. "
+       "Keep the customer's stated concerns and which products were discussed. "
+       "Do not invent anything."
     )
     
     previous = state.get("summary")
     if previous:
-        instruction = f"Summary so far {previous}\n\n{instruction} Extend it"
+        instruction = f"Summary so far : {previous}\n\n{instruction} Extend it"
         
-    summary = use_gcp().invoke([SystemMessage(instruction).content])
+    result = use_gcp().invoke([SystemMessage(instruction)] + old)
     return {
         
-        'summary':summary,
-        'message': [RemoveMessage(id=mess.id ) for mess in old]
+        'summary':result.content,
+        'messages': [RemoveMessage(id=m.id ) for m in old]
         
     }
     
