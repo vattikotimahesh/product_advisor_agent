@@ -11,7 +11,7 @@ def main():
         try:
             text = input("You: ")
         except:
-            (KeyboardInterrupt, EOFError):
+            (KeyboardInterrupt, EOFError)
             print("\nended")
             break
 
