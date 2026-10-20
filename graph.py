@@ -1,16 +1,11 @@
 from langgraph.graph import START,END,StateGraph
-from nodes import (assistant, 
-    use_tool_node, 
-    customer_info,
-    use_tools,
-    conversation,
-    SUMMARY_TRIGGER)
+from nodes import assistant, use_tool_node,conversation,SUMMARY_TRIGGER
 from state import Suggest_state
 
 from  langgraph.prebuilt import tools_condition
 
 
-def exit(state:Suggest_state)->str:
+def should_summarize(state:Suggest_state) -> str:
     if len(state['messages']) > SUMMARY_TRIGGER:
         return 'summarize'
     return END
@@ -19,7 +14,7 @@ def after_assistant(state:Suggest_state)-> str:
     last=state['messages'][-1]
     if getattr(last, "tool_calls", None):
         return "tools"
-    return exit(state)
+    return should_summarize(state)
     
     
 
@@ -40,15 +35,14 @@ def create_graph()-> StateGraph:
     
     my_graph.add_edge(START,'assistant')
     
-    my_graph.add_conditional_edges('assistant',
-                            tools_condition,
+    my_graph.add_conditional_edges(
+        'assistant',
+        after_assistant,        
         {
-                            'tools':'tools',
-                            'summarize':'summarize',
-                                
-                            END:END
-                                
-        }
+            'tools': 'tools',
+            'summarize': 'summarize',
+            END: END,
+        },
     )
     my_graph.add_edge('tools',
                     'assistant')

@@ -5,7 +5,7 @@ from langchain_core.messages import HumanMessage
 
 result=graph.invoke(Suggest_state(
     messages = [
-        HumanMessage(content = 'i need a fix oil and dry skin')
+        HumanMessage(content = 'i need a fix  dry skin')
         ]
     )
 )
